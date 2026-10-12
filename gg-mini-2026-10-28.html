@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>The GG Mini</title>
+<style>
+  :root{
+    --ink:#000;
+    --paper:#fff;
+    --line:#000;
+    --selected-cell:#ffe23e;
+    --selected-word:#c8e6ff;
+    --black-square:#000;
+    --correct:#7cc576;
+    --gray:#f6f6f6;
+    --border-gray:#d3d6da;
+  }
+  html{
+    overflow-y:scroll;
+    scrollbar-gutter:stable;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    background:var(--paper);
+    font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    color:var(--ink);
+  }
+  body{
+    width:100%;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .app{
+    width:100%;
+    max-width:420px;
+    padding:18px 14px 28px;
+  }
+  .masthead{
+    text-align:center;
+    margin-bottom:10px;
+  }
+  .masthead .kicker{
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:#767676;
+    font-weight:600;
+  }
+  .masthead h1{
+    font-family:"Times New Roman",Georgia,serif;
+    font-weight:700;
+    font-size:34px;
+    margin:2px 0 0;
+    letter-spacing:0.5px;
+  }
+  .masthead .puzzle-date{
+    font-size:12px;
+    color:#767676;
+    margin-top:4px;
+  }
+  .meta-row{
+    display:flex;
+    justify-content:flex-end;
+    align-items:center;
+    font-size:13px;
+    color:#555;
+    margin:10px 2px 14px;
+    font-variant-numeric:tabular-nums;
+  }
+  #timer{font-weight:600;color:#000;}
+
+  .grid-wrap{
+    width:100%;
+    aspect-ratio:1/1;
+    margin:0 auto;
+    border:2px solid var(--line);
+  }
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(9,1fr);
+    grid-template-rows:repeat(9,1fr);
+    width:100%;
+    height:100%;
+  }
+  .cell{
+    position:relative;
+    border:1px solid var(--line);
+    background:var(--paper);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    user-select:none;
+  }
+  .cell.black{
+    background:var(--black-square);
+    cursor:default;
+  }
+  .cell.selected-word{background:var(--selected-word);}
+  .cell.selected{background:var(--selected-cell);}
+  .cell .num{
+    position:absolute;
+    top:2px;left:3px;
+    font-size:10px;
+    font-weight:700;
+    color:#333;
+    line-height:1;
+  }
+  .cell .letter{
+    font-size:clamp(18px,5.4vw,28px);
+    font-weight:500;
+    color:#000;
+    text-transform:uppercase;
+    line-height:1;
+  }
+  .cell.correct-flash .letter{color:#1a7a1a;}
+
+  .clue-bar{
+    margin-top:14px;
+    background:var(--gray);
+    border-radius:6px;
+    padding:12px 14px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-height:46px;
+  }
+  .clue-bar .dir-toggle{
+    flex:0 0 auto;
+    width:26px;height:26px;
+    border-radius:50%;
+    background:#000;
+    color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .clue-bar .next-toggle{
+    flex:0 0 auto;
+    width:26px;height:26px;
+    border-radius:50%;
+    background:#000;
+    color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .clue-bar .clue-text{
+    font-size:15px;
+    font-weight:500;
+    flex:1;
+  }
+  .clue-bar .clue-text b{font-weight:700;margin-right:5px;}
+
+  .locked-message{
+    display:none;
+    text-align:center;
+    padding:36px 20px;
+    color:#555;
+    font-size:14px;
+    line-height:1.6;
+  }
+  .locked-message .lock-icon{
+    font-size:28px;
+    display:block;
+    margin-bottom:10px;
+  }
+  .app.locked .grid-wrap,
+  .app.locked .clue-bar,
+  .app.locked .keyboard,
+  .app.locked .meta-row{
+    display:none;
+  }
+  .app.locked .locked-message{
+    display:block;
+  }
+
+  .win-overlay{
+    position:fixed;inset:0;
+    background:rgba(255,255,255,0.97);
+    display:none;
+    align-items:center;justify-content:center;
+    flex-direction:column;
+    text-align:center;
+    padding:24px;
+    z-index:10;
+  }
+  .win-overlay.show{display:flex;}
+  .win-overlay .check{
+    width:64px;height:64px;
+    border-radius:50%;
+    background:#000;
+    display:flex;align-items:center;justify-content:center;
+    margin-bottom:18px;
+    animation:pop 0.4s ease;
+  }
+  .win-overlay .check svg{width:32px;height:32px;stroke:#fff;}
+  @keyframes pop{
+    0%{transform:scale(0);}
+    70%{transform:scale(1.15);}
+    100%{transform:scale(1);}
+  }
+  .win-overlay h2{
+    font-family:"Times New Roman",Georgia,serif;
+    font-size:26px;
+    margin:0 0 6px;
+  }
+  .win-overlay p{
+    font-size:14px;
+    color:#555;
+    margin:0 0 20px;
+  }
+  .win-overlay button{
+    font-family:inherit;
+    font-size:13px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:0.3px;
+    padding:10px 20px;
+    border-radius:20px;
+    border:none;
+    background:#000;
+    color:#fff;
+    cursor:pointer;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .win-overlay .check{animation:none;}
+  }
+
+  .score-form{
+    margin-bottom:18px;
+  }
+  .score-form label{
+    display:block;
+    font-size:11px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:#767676;
+    margin-bottom:8px;
+  }
+  .initials-row{
+    display:flex;
+    justify-content:center;
+    gap:8px;
+  }
+  .initials-row input{
+    width:70px;
+    height:48px;
+    font-family:inherit;
+    font-size:24px;
+    font-weight:700;
+    letter-spacing:4px;
+    text-align:center;
+    text-transform:uppercase;
+    border:2px solid #000;
+    border-radius:6px;
+    padding:0 0 0 4px;
+  }
+  .initials-row button{
+    font-family:inherit;
+    font-size:13px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:0.3px;
+    padding:0 18px;
+    border-radius:20px;
+    border:none;
+    background:#000;
+    color:#fff;
+    cursor:pointer;
+  }
+  .initials-row button:disabled{
+    opacity:0.5;
+    cursor:default;
+  }
+  .score-msg{
+    font-size:12px;
+    margin-top:8px;
+    min-height:16px;
+  }
+  .score-msg.error{color:#b0332e;}
+  .mini-board{
+    margin:0 0 18px;
+    text-align:left;
+    border:1px solid var(--border-gray);
+    border-radius:8px;
+    overflow:hidden;
+  }
+  .mini-board table{width:100%;border-collapse:collapse;}
+  .mini-board td, .mini-board th{
+    padding:6px 12px;
+    font-size:13px;
+  }
+  .mini-board th{
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    color:#767676;
+    text-align:left;
+    background:var(--gray);
+  }
+  .mini-board td.time{text-align:right;font-variant-numeric:tabular-nums;}
+  .leaderboard-link{
+    display:inline-block;
+    font-size:13px;
+    font-weight:600;
+    color:#000;
+    text-decoration:underline;
+    margin-bottom:16px;
+  }
+
+  #sr-live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);}
+
+  .keyboard{
+    margin-top:16px;
+    user-select:none;
+  }
+  .kb-row{
+    display:flex;
+    justify-content:center;
+    gap:5px;
+    margin-bottom:6px;
+  }
+  .key{
+    flex:1;
+    max-width:32px;
+    height:42px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--gray);
+    border:1px solid var(--border-gray);
+    border-radius:5px;
+    font-family:inherit;
+    font-size:14px;
+    font-weight:600;
+    color:#000;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .key:active{background:var(--border-gray);}
+  .key.wide{
+    flex:1.8;
+    max-width:56px;
+    font-size:16px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="masthead">
+    <div class="kicker">Crossword</div>
+    <h1>The GG Mini</h1>
+    <div class="puzzle-date">October 28, 2026 · Puzzle 11</div>
+  </div>
+  <div class="meta-row">
+    <span id="timer">0:00</span>
+  </div>
+
+  <div class="locked-message" id="lockedMessage">
+    <span class="lock-icon">🔒</span>
+    This puzzle hasn't unlocked yet.<br>Check back on the date above!
+  </div>
+
+  <div class="grid-wrap">
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="clue-bar">
+    <div class="dir-toggle" id="dirToggle" title="Switch direction">↴</div>
+    <div class="clue-text" id="clueText"><b>1A</b> Placeholder</div>
+    <div class="next-toggle" id="nextClue" title="Next clue">›</div>
+  </div>
+
+  <div class="keyboard" id="keyboard"></div>
+</div>
+
+<div class="win-overlay" id="winOverlay">
+  <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+  <h2 id="winTitle">You solved it!</h2>
+  <p id="winTime">Your time: 0:00</p>
+
+  <div class="score-form" id="scoreForm">
+    <label for="initialsInput" id="initialsLabel">Enter your initials</label>
+    <div class="initials-row">
+      <input type="text" id="initialsInput" maxlength="3" autocomplete="off" autocapitalize="characters" placeholder="AAA">
+      <button id="submitScoreBtn">Save</button>
+    </div>
+    <div class="score-msg" id="scoreMsg"></div>
+  </div>
+
+  <div class="score-msg" id="alreadyLoggedMsg" style="display:none;"></div>
+
+  <div class="mini-board" id="miniBoard" style="display:none;"></div>
+
+  <a class="leaderboard-link" id="leaderboardLink" href="archive.html#gg-mini-2026-10-28">View full leaderboard →</a>
+  <button id="closeWin">Close</button>
+</div>
+
+<div id="sr-live" aria-live="polite"></div>
+
+<script src="messages.js"></script>
+<script>
+/* ---------- Puzzle data ----------
+   8x8 grid, own words and clues, in the style of the NYT Mini.
+   '#' marks a black square.
+*/
+const SOLUTION = [
+  ['G','A','T','E','#','M','A','I','N'],
+  ['A','R','E','A','#','A','I','D','E'],
+  ['S','C','A','R','E','C','R','O','W'],
+  ['#','#','#','#','B','#','#','#','#'],
+  ['H','A','L','L','O','W','E','E','N'],
+  ['#','#','#','#','N','#','#','#','#'],
+  ['C','A','N','D','Y','C','O','R','N'],
+  ['A','R','I','A','#','A','L','O','E'],
+  ['R','E','L','Y','#','D','E','B','T'],
+];
+
+const CLUES = {
+  across: {
+    1: "Creaky entrance to an old graveyard",
+    5: "Chief, as the ___ course of a harvest supper",
+    9: "Length times width, as of a pumpkin patch",
+    10: "Helper, like a witch's apprentice",
+    11: "Straw-stuffed guard of the cornfield",
+    13: "October 31st, for trick-or-treaters",
+    14: "Striped orange, yellow and white Halloween treat (2 wds.)",
+    22: "Opera solo, perhaps sung by a phantom",
+    23: "Soothing plant gel",
+    24: "Count (on), as on a full moon to light the way",
+    25: "What you owe",
+  },
+  down: {
+    1: "Fuel for the hayride tractor",
+    2: "Curve of a crescent moon",
+    3: "Hot drink on a chilly autumn evening",
+    4: "___ of corn",
+    5: "___ and cheese, comfort food on a cold night",
+    6: "Crisp autumn ___",
+    7: "Wedding vow (2 wds.)",
+    8: "Like the moon on its darkest night",
+    12: "Deep black, like a witch's cat",
+    14: "Ride to the pumpkin patch",
+    15: "\"You ___ what you eat\"",
+    16: "Zero, on a scoreboard",
+    17: "Opposite of night",
+    18: "Villain in an old melodrama",
+    19: "Cheer at a bullfight",
+    20: "Steal, like a raccoon raiding the candy bowl",
+    21: "Mesh for catching fish",
+  }
+};
+
+const ROWS = 9, COLS = 9;
+const PUZZLE_ID = 'gg-mini-2026-10-28';
+const RELEASE_DATE = '2026-10-28';
+const RELEASED = new Date() >= new Date(RELEASE_DATE + 'T00:00:00');
+if(!RELEASED){ document.querySelector('.app').classList.add('locked'); }
+
+// ---------- Build numbering + word maps ----------
+const numberGrid = Array.from({length:ROWS},()=>Array(COLS).fill(null));
+const acrossWords = {}; // number -> {cells:[[r,c],...]}
+const downWords = {};
+
+(function number(){
+  let n = 1;
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      if(SOLUTION[r][c]==='#') continue;
+      const startsAcross = (c===0 || SOLUTION[r][c-1]==='#') && (c+1<COLS && SOLUTION[r][c+1]!=='#');
+      const startsDown = (r===0 || SOLUTION[r-1][c]==='#') && (r+1<ROWS && SOLUTION[r+1][c]!=='#');
+      if(startsAcross || startsDown){
+        numberGrid[r][c] = n;
+        if(startsAcross){
+          const cells=[]; let cc=c;
+          while(cc<COLS && SOLUTION[r][cc]!=='#'){cells.push([r,cc]);cc++;}
+          acrossWords[n] = {cells};
+        }
+        if(startsDown){
+          const cells=[]; let rr=r;
+          while(rr<ROWS && SOLUTION[rr][c]!=='#'){cells.push([rr,c]);rr++;}
+          downWords[n] = {cells};
+        }
+        n++;
+      }
+    }
+  }
+})();
+
+const WORD_ORDER = [
+  ...Object.keys(acrossWords).map(n=>({num:+n, dir:'across'})),
+  ...Object.keys(downWords).map(n=>({num:+n, dir:'down'}))
+];
+
+function jumpToNextWord(curNum, curDir){
+  const idx = WORD_ORDER.findIndex(w=>w.num===curNum && w.dir===curDir);
+  if(idx===-1) return;
+  for(let i=1;i<=WORD_ORDER.length;i++){
+    const next = WORD_ORDER[(idx+i)%WORD_ORDER.length];
+    const cells = (next.dir==='across' ? acrossWords : downWords)[next.num].cells;
+    const emptyCell = cells.find(([rr,cc])=>!state.grid[rr][cc]);
+    const target = emptyCell || cells[0];
+    state.dir = next.dir;
+    state.selR = target[0];
+    state.selC = target[1];
+    render();
+    return;
+  }
+}
+
+function jumpToPrevWord(curNum, curDir){
+  const idx = WORD_ORDER.findIndex(w=>w.num===curNum && w.dir===curDir);
+  if(idx===-1) return;
+  for(let i=1;i<=WORD_ORDER.length;i++){
+    const prev = WORD_ORDER[(idx-i+WORD_ORDER.length)%WORD_ORDER.length];
+    const cells = (prev.dir==='across' ? acrossWords : downWords)[prev.num].cells;
+    const emptyCell = cells.find(([rr,cc])=>!state.grid[rr][cc]);
+    const target = emptyCell || cells[0];
+    state.dir = prev.dir;
+    state.selR = target[0];
+    state.selC = target[1];
+    render();
+    return;
+  }
+}
+
+function cellToWordNumber(r,c,dir){
+  const words = dir==='across' ? acrossWords : downWords;
+  for(const num in words){
+    if(words[num].cells.some(([rr,cc])=>rr===r&&cc===c)) return parseInt(num);
+  }
+  return null;
+}
+
+// ---------- State ----------
+const state = {
+  grid: Array.from({length:ROWS},()=>Array(COLS).fill('')),
+  dir: 'across',
+  selR: 0, selC: 0,
+  startTime: Date.now(),
+  timerInterval: null,
+  solved: false
+};
+
+// ---------- Progress persistence (localStorage) ----------
+const STORAGE_KEY = 'gg-mini-progress::' + SOLUTION.map(r=>r.join('')).join('|');
+
+function saveProgress(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      grid: state.grid,
+      elapsedMs: Date.now() - state.startTime,
+      solved: state.solved
+    }));
+  }catch(e){ /* storage unavailable — fail silently */ }
+}
+
+function loadProgress(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return;
+    const data = JSON.parse(raw);
+    if(data && Array.isArray(data.grid) && data.grid.length===ROWS){
+      state.grid = data.grid;
+    }
+    if(data && typeof data.elapsedMs === 'number'){
+      state.startTime = Date.now() - data.elapsedMs;
+    }
+    if(data && data.solved){
+      state.solved = true;
+    }
+  }catch(e){ /* corrupt or unavailable — start fresh */ }
+}
+
+loadProgress();
+
+// find first playable cell
+outer:
+for(let r=0;r<ROWS;r++){for(let c=0;c<COLS;c++){if(SOLUTION[r][c]!=='#'){state.selR=r;state.selC=c;break outer;}}}
+
+// ---------- Render grid ----------
+const gridEl = document.getElementById('grid');
+function buildGrid(){
+  gridEl.innerHTML='';
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const div = document.createElement('div');
+      div.className='cell';
+      div.dataset.r=r; div.dataset.c=c;
+      if(SOLUTION[r][c]==='#'){
+        div.classList.add('black');
+      }else{
+        if(numberGrid[r][c]){
+          const num = document.createElement('div');
+          num.className='num';
+          num.textContent = numberGrid[r][c];
+          div.appendChild(num);
+        }
+        const letter = document.createElement('div');
+        letter.className='letter';
+        div.appendChild(letter);
+        div.addEventListener('click', ()=>onCellClick(r,c));
+      }
+      gridEl.appendChild(div);
+    }
+  }
+}
+buildGrid();
+
+function onCellClick(r,c){
+  if(state.selR===r && state.selC===c){
+    // toggle direction if possible
+    const otherDir = state.dir==='across' ? 'down' : 'across';
+    if(cellToWordNumber(r,c,otherDir)!==null){
+      state.dir = otherDir;
+    }
+  }else{
+    state.selR=r; state.selC=c;
+    // prefer current direction if word exists there, else switch
+    if(cellToWordNumber(r,c,state.dir)===null){
+      state.dir = state.dir==='across' ? 'down' : 'across';
+    }
+  }
+  render();
+}
+
+// ---------- Render selection + letters ----------
+function render(){
+  const curNum = cellToWordNumber(state.selR, state.selC, state.dir);
+  const words = state.dir==='across' ? acrossWords : downWords;
+  const activeCells = curNum!==null ? words[curNum].cells : [];
+
+  document.querySelectorAll('.cell').forEach(div=>{
+    const r=+div.dataset.r, c=+div.dataset.c;
+    if(div.classList.contains('black')) return;
+    div.classList.remove('selected','selected-word');
+    const inWord = activeCells.some(([rr,cc])=>rr===r&&cc===c);
+    if(inWord) div.classList.add('selected-word');
+    if(r===state.selR && c===state.selC) div.classList.add('selected');
+    const letterEl = div.querySelector('.letter');
+    letterEl.textContent = state.grid[r][c] || '';
+  });
+
+  // clue bar
+  const clueTextEl = document.getElementById('clueText');
+  if(curNum!==null){
+    const label = curNum + (state.dir==='across' ? 'A' : 'D');
+    const text = state.dir==='across' ? CLUES.across[curNum] : CLUES.down[curNum];
+    clueTextEl.innerHTML = `<b>${label}</b> ${text}`;
+  }
+}
+render();
+
+// ---------- On-screen keyboard (avoids popping the native mobile keyboard) ----------
+const KB_ROWS = ['QWERTYUIOP','ASDFGHJKL','ZXCVBNM'];
+const keyboardEl = document.getElementById('keyboard');
+function buildKeyboard(){
+  keyboardEl.innerHTML='';
+  KB_ROWS.forEach((rowStr, idx)=>{
+    const rowEl = document.createElement('div');
+    rowEl.className='kb-row';
+    rowStr.split('').forEach(letter=>{
+      const keyEl = document.createElement('div');
+      keyEl.className='key';
+      keyEl.textContent=letter;
+      keyEl.setAttribute('role','button');
+      keyEl.setAttribute('aria-label','Letter '+letter);
+      keyEl.addEventListener('click', ()=>{
+        if(state.solved) return;
+        placeLetter(letter);
+      });
+      rowEl.appendChild(keyEl);
+    });
+    if(idx===2){
+      const bsEl = document.createElement('div');
+      bsEl.className='key wide';
+      bsEl.textContent='⌫';
+      bsEl.setAttribute('role','button');
+      bsEl.setAttribute('aria-label','Backspace');
+      bsEl.addEventListener('click', ()=>{
+        if(state.solved) return;
+        backspace();
+      });
+      rowEl.appendChild(bsEl);
+    }
+    keyboardEl.appendChild(rowEl);
+  });
+}
+buildKeyboard();
+
+// ---------- Physical keyboard support (desktop) ----------
+document.addEventListener('keydown', (e)=>{
+  if(!RELEASED) return;
+  if(state.solved) return;
+  if(e.key==='ArrowRight'){ move(0,1); e.preventDefault(); }
+  else if(e.key==='ArrowLeft'){ move(0,-1); e.preventDefault(); }
+  else if(e.key==='ArrowDown'){ move(1,0); e.preventDefault(); }
+  else if(e.key==='ArrowUp'){ move(-1,0); e.preventDefault(); }
+  else if(e.key==='Backspace'){ backspace(); e.preventDefault(); }
+  else if(e.key===' '){
+    const otherDir = state.dir==='across' ? 'down' : 'across';
+    if(cellToWordNumber(state.selR,state.selC,otherDir)!==null) state.dir=otherDir;
+    render(); e.preventDefault();
+  }
+  else if(e.key==='Tab'){
+    const curNum = cellToWordNumber(state.selR, state.selC, state.dir);
+    if(curNum!==null){
+      if(e.shiftKey) jumpToPrevWord(curNum, state.dir);
+      else jumpToNextWord(curNum, state.dir);
+    }
+    e.preventDefault();
+  }
+  else if(e.key.length===1 && /[a-zA-Z]/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey){
+    placeLetter(e.key.toUpperCase());
+    e.preventDefault();
+  }
+});
+
+function move(dr,dc){
+  let r=state.selR+dr, c=state.selC+dc;
+  if(r<0||r>=ROWS||c<0||c>=COLS) return;
+  if(SOLUTION[r][c]==='#') return;
+  state.selR=r; state.selC=c;
+  render();
+}
+
+function placeLetter(ch){
+  if(state.solved) return;
+  const {selR:r, selC:c} = state;
+  state.grid[r][c] = ch;
+  render();
+
+  const words = state.dir==='across' ? acrossWords : downWords;
+  const num = cellToWordNumber(r, c, state.dir);
+  const cells = words[num].cells;
+  const idxInWord = cells.findIndex(([rr,cc])=>rr===r&&cc===c);
+  const isLastCell = idxInWord === cells.length-1;
+  const wordComplete = cells.every(([rr,cc])=>state.grid[rr][cc]);
+
+  if(isLastCell && wordComplete){
+    jumpToNextWord(num, state.dir);
+  }else{
+    advance();
+  }
+  checkAutoComplete();
+  saveProgress();
+}
+
+function advance(){
+  const words = state.dir==='across' ? acrossWords : downWords;
+  const num = cellToWordNumber(state.selR, state.selC, state.dir);
+  if(num===null) return;
+  const cells = words[num].cells;
+  const idx = cells.findIndex(([r,c])=>r===state.selR&&c===state.selC);
+  if(idx>-1 && idx<cells.length-1){
+    const [nr,nc] = cells[idx+1];
+    state.selR=nr; state.selC=nc;
+    render();
+  }
+}
+
+function backspace(){
+  const {selR:r, selC:c} = state;
+  if(state.grid[r][c]){
+    state.grid[r][c]='';
+    render();
+  }else{
+    const words = state.dir==='across' ? acrossWords : downWords;
+    const num = cellToWordNumber(r,c,state.dir);
+    if(num===null) return;
+    const cells = words[num].cells;
+    const idx = cells.findIndex(([rr,cc])=>rr===r&&cc===c);
+    if(idx>0){
+      const [pr,pc] = cells[idx-1];
+      state.selR=pr; state.selC=pc;
+      state.grid[pr][pc]='';
+      render();
+    }
+  }
+  saveProgress();
+}
+
+// ---------- Timer ----------
+const timerEl = document.getElementById('timer');
+function tick(){
+  const secs = Math.floor((Date.now()-state.startTime)/1000);
+  const m = Math.floor(secs/60), s = secs%60;
+  timerEl.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+}
+if(!RELEASED){
+  // locked — don't start the clock
+}else if(state.solved){
+  tick();
+}else{
+  state.timerInterval = setInterval(tick, 1000);
+  tick();
+}
+
+function checkAutoComplete(){
+  let full = true;
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    if(SOLUTION[r][c]!=='#' && !state.grid[r][c]) full=false;
+  }
+  if(!full) return;
+  let allCorrect = true;
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    if(SOLUTION[r][c]!=='#' && state.grid[r][c]!==SOLUTION[r][c]) allCorrect=false;
+  }
+  if(allCorrect && !state.solved){
+    state.solved = true;
+    state.solvedTimeMs = Date.now() - state.startTime;
+    clearInterval(state.timerInterval);
+    document.getElementById('winTime').textContent = MSG.winTime(timerEl.textContent);
+    playWinArt(gridEl, WIN_ART, () => { document.getElementById('winOverlay').classList.add('show'); resetScoreForm(); });
+    saveProgress();
+  }
+}
+
+document.getElementById('dirToggle').addEventListener('click', ()=>{
+  const otherDir = state.dir==='across' ? 'down' : 'across';
+  if(cellToWordNumber(state.selR,state.selC,otherDir)!==null){
+    state.dir = otherDir;
+    render();
+  }
+});
+
+document.getElementById('nextClue').addEventListener('click', ()=>{
+  const curNum = cellToWordNumber(state.selR, state.selC, state.dir);
+  if(curNum!==null) jumpToNextWord(curNum, state.dir);
+});
+
+document.getElementById('closeWin').addEventListener('click', ()=>{
+  document.getElementById('winOverlay').classList.remove('show');
+});
+
+window.addEventListener('beforeunload', saveProgress);
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='hidden') saveProgress();
+});
+
+// ---- Win animation (start) ----
+const WIN_ART = ["<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\"> <path d=\"M47 22 C46 14 50 8 57 6 L59 11 C54 13 53 17 54 22 Z\" fill=\"#4f8a2b\" stroke=\"#2b2118\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/> <ellipse cx=\"30\" cy=\"60\" rx=\"21\" ry=\"29\" fill=\"#e9781a\" stroke=\"#2b2118\" stroke-width=\"3\"/> <ellipse cx=\"70\" cy=\"60\" rx=\"21\" ry=\"29\" fill=\"#e9781a\" stroke=\"#2b2118\" stroke-width=\"3\"/> <ellipse cx=\"50\" cy=\"60\" rx=\"23\" ry=\"31\" fill=\"#f59a2c\" stroke=\"#2b2118\" stroke-width=\"3\"/> <path d=\"M30 50 L40 38 L45 52 Z M70 50 L60 38 L55 52 Z\" fill=\"#ffd54a\" stroke=\"#2b2118\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/> <path d=\"M47 60 L50 54 L53 60 Z\" fill=\"#ffd54a\" stroke=\"#2b2118\" stroke-width=\"2\" stroke-linejoin=\"round\"/> <path d=\"M27 68 Q50 88 73 68 L66 70 L62 76 L57 71 L50 79 L43 71 L38 76 L34 70 Z\" fill=\"#ffd54a\" stroke=\"#2b2118\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/> </svg>","<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\"> <path d=\"M8 66 L92 66\" stroke=\"#8a5a2b\" stroke-width=\"7\" stroke-linecap=\"round\"/> <path d=\"M6 60 l-3 -6 M6 66 l-5 0 M6 72 l-3 6 M94 60 l3 -6 M94 66 l5 0 M94 72 l3 6\" stroke=\"#e2b23c\" stroke-width=\"3\" stroke-linecap=\"round\"/> <path d=\"M30 60 L70 60 L78 97 L22 97 Z\" fill=\"#4a78c2\" stroke=\"#2b2118\" stroke-width=\"3\" stroke-linejoin=\"round\"/> <rect x=\"52\" y=\"74\" width=\"12\" height=\"11\" fill=\"#d9534f\" stroke=\"#2b2118\" stroke-width=\"2\" transform=\"rotate(-8 58 79)\"/> <path d=\"M36 50 l-4 10 M42 54 l-1 9 M58 54 l1 9 M64 50 l4 10\" stroke=\"#e2b23c\" stroke-width=\"3\" stroke-linecap=\"round\"/> <circle cx=\"50\" cy=\"42\" r=\"18\" fill=\"#e9cf96\" stroke=\"#2b2118\" stroke-width=\"3\"/> <path d=\"M40 38 l6 6 M46 38 l-6 6 M54 38 l6 6 M60 38 l-6 6\" stroke=\"#2b2118\" stroke-width=\"2.5\" stroke-linecap=\"round\"/> <path d=\"M47 46 L53 46 L50 51 Z\" fill=\"#e9781a\" stroke=\"#2b2118\" stroke-width=\"1.8\" stroke-linejoin=\"round\"/> <path d=\"M40 53 Q50 60 60 53\" fill=\"none\" stroke=\"#2b2118\" stroke-width=\"2.2\" stroke-linecap=\"round\"/> <path d=\"M43 54 l-1 3 M47 56 l0 3 M53 56 l0 3 M57 54 l1 3\" stroke=\"#2b2118\" stroke-width=\"1.6\" stroke-linecap=\"round\"/> <ellipse cx=\"50\" cy=\"27\" rx=\"30\" ry=\"6\" fill=\"#7a4a22\" stroke=\"#2b2118\" stroke-width=\"3\"/> <path d=\"M35 27 L39 6 L61 6 L65 27 Z\" fill=\"#8f5a2a\" stroke=\"#2b2118\" stroke-width=\"3\" stroke-linejoin=\"round\"/> <path d=\"M36.5 20 L63.5 20 L64.6 25 L35.4 25 Z\" fill=\"#c0392b\"/> <path d=\"M22 29 l-4 5 M26 31 l-2 6 M74 31 l2 6 M78 29 l4 5\" stroke=\"#e2b23c\" stroke-width=\"3\" stroke-linecap=\"round\"/> </svg>","<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\"> <defs><clipPath id=\"gg-cc\"><path d=\"M50 6 C60 6 84 70 85 84 C86 95 14 95 15 84 C16 70 40 6 50 6 Z\"/></clipPath></defs> <g clip-path=\"url(#gg-cc)\"> <rect x=\"0\" y=\"0\" width=\"100\" height=\"100\" fill=\"#fbfaf4\"/> <rect x=\"0\" y=\"34\" width=\"100\" height=\"34\" fill=\"#f28a1e\"/> <rect x=\"0\" y=\"68\" width=\"100\" height=\"40\" fill=\"#fbd23a\"/> </g> <path d=\"M50 6 C60 6 84 70 85 84 C86 95 14 95 15 84 C16 70 40 6 50 6 Z\" fill=\"none\" stroke=\"#2b2118\" stroke-width=\"3\" stroke-linejoin=\"round\"/> <path d=\"M44 18 C40 28 36 40 33 52\" stroke=\"#fff\" stroke-width=\"4\" stroke-linecap=\"round\" opacity=\".7\" fill=\"none\"/> </svg>","<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\"> <path d=\"M20 62 L4 74 L10 78 L4 86 L26 72 Z\" fill=\"#23232e\" stroke=\"#2b2118\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/> <ellipse cx=\"46\" cy=\"60\" rx=\"28\" ry=\"20\" fill=\"#2d2d3a\" stroke=\"#2b2118\" stroke-width=\"3\"/> <path d=\"M30 54 Q46 44 62 58 Q48 72 26 66 Z\" fill=\"#3c3c4e\" stroke=\"#2b2118\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/> <circle cx=\"70\" cy=\"40\" r=\"15\" fill=\"#2d2d3a\" stroke=\"#2b2118\" stroke-width=\"3\"/> <path d=\"M83 36 L98 42 L83 47 Z\" fill=\"#f2b632\" stroke=\"#2b2118\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/> <circle cx=\"73\" cy=\"36\" r=\"5\" fill=\"#fff\" stroke=\"#2b2118\" stroke-width=\"1.5\"/><circle cx=\"74.5\" cy=\"36\" r=\"2.4\" fill=\"#2b2118\"/> <path d=\"M44 79 L42 92 M42 92 l-5 3 M42 92 l4 3 M54 79 L55 92 M55 92 l-5 3 M55 92 l4 3\" stroke=\"#f2b632\" stroke-width=\"3\" stroke-linecap=\"round\"/> </svg>"];
+// The themed win animation (owner, 2026-10-12): cartoon objects from the puzzle rise out of the grid half a
+// second apart, each flying to its own part of the screen and growing, then bursting into a puff of smoke.
+// About 3 s each. playWinArt(gridEl, svgs, done) calls done() when the last puff has cleared.
+// This exact code is copied into each themed puzzle page by tools/gg.js (and used by the preview page).
+function playWinArt(gridEl, svgs, done){
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!svgs || !svgs.length || reduce || !gridEl.animate){ done && done(); return; }
+  const layer = document.createElement('div');
+  layer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:20;overflow:hidden';
+  document.body.appendChild(layer);
+  const W = innerWidth, H = innerHeight, g = gridEl.getBoundingClientRect();
+  // Destinations clustered around the middle of the puzzle (owner): evenly spread directions (randomly turned),
+  // a third to half a grid-width out from its centre.
+  const gx = g.left + g.width / 2, gy = g.top + g.height / 2, turn = Math.random() * Math.PI * 2;
+  const spots = svgs.map((_, i) => { const a = turn + i * Math.PI * 2 / svgs.length, d = g.width * (.3 + Math.random() * .14);
+    return [gx + Math.cos(a) * d, gy + Math.sin(a) * d]; }).sort(() => Math.random() - .5);
+  // BURST: the moment (fraction of LIFE) the object vanishes. The smoke is timed on the same clock (a delay on
+  // its own animation, not a separate timer), so it covers the object exactly as it disappears (owner).
+  const size = Math.min(110, W * .26), STEP = 500, LIFE = 3000, BURST = .74;
+  svgs.forEach((svg, i) => setTimeout(() => {
+    const el = document.createElement('div');
+    el.innerHTML = svg;
+    el.style.cssText = `position:absolute;left:0;top:0;width:${size}px;height:${size}px;will-change:transform,opacity`;
+    el.firstElementChild.setAttribute('width', '100%'); el.firstElementChild.setAttribute('height', '100%');
+    layer.appendChild(el);
+    // Start near the centre of the grid, and fly in one straight line to its spot (owner: no kinks), growing.
+    const sx = gx + (Math.random() - .5) * g.width * .16 - size / 2, sy = gy + (Math.random() - .5) * g.height * .16 - size / 2;
+    const tx = spots[i][0] - size / 2, ty = spots[i][1] - size / 2, on = f => [sx + (tx - sx) * f, sy + (ty - sy) * f];
+    // No spinning (owner): it rises and grows, swells a little more, then vanishes inside the smoke.
+    const at = (x, y, s) => `translate(${x}px,${y}px) scale(${s})`;
+    el.animate([
+      { transform: at(...on(0), .2), opacity: 0 },
+      { transform: at(...on(.15), .5), opacity: 1, offset: .1 },
+      { transform: at(tx, ty, 1.2), offset: .52 },
+      { transform: at(tx, ty, 1.5), opacity: 1, offset: BURST },
+      { transform: at(tx, ty, 1.65), opacity: 0, offset: BURST + .05 },
+      { transform: at(tx, ty, 1.65), opacity: 0 },
+    ], { duration: LIFE, fill: 'forwards' });
+    // The smoke: on top of the object, at its centre, big enough to hide it (it's 1.5x its size by then).
+    puff(layer, tx + size / 2, ty + size / 2, size * 1.5, LIFE * BURST - 120);
+  }, i * STEP));
+  setTimeout(() => { layer.remove(); done && done(); }, (svgs.length - 1) * STEP + LIFE + 150);
+}
+// A puff of smoke centred on (cx, cy), about `size` across, starting after `delay` ms: it billows up thick
+// in the first ~150 ms (covering what's behind it), then drifts apart and fades.
+function puff(layer, cx, cy, size, delay = 0){
+  const n = 9;
+  for(let k = 0; k <= n; k++){
+    const p = document.createElement('div'), r = size * (k === n ? .6 : .32 + Math.random() * .12);
+    const a = (k / n) * Math.PI * 2 + Math.random() * .5, d = k === n ? 0 : size * (.2 + Math.random() * .12);
+    p.style.cssText = `position:absolute;left:${cx - r}px;top:${cy - r}px;width:${r * 2}px;height:${r * 2}px;border-radius:50%;opacity:0;` +
+      'background:radial-gradient(circle at 40% 38%,rgba(255,255,255,1),rgba(222,222,228,.95) 55%,rgba(200,200,208,0) 72%)';
+    layer.appendChild(p);
+    p.animate([
+      { transform: 'translate(0,0) scale(.35)', opacity: 0 },
+      { transform: `translate(${Math.cos(a) * d * .5}px,${Math.sin(a) * d * .5}px) scale(1)`, opacity: 1, offset: .16 },
+      { transform: `translate(${Math.cos(a) * d}px,${Math.sin(a) * d - 8}px) scale(1.15)`, opacity: .9, offset: .4 },
+      { transform: `translate(${Math.cos(a) * d * 1.8}px,${Math.sin(a) * d * 1.8 - 22}px) scale(1.45)`, opacity: 0 },
+    ], { duration: 950, delay, easing: 'ease-out', fill: 'forwards' });
+  }
+}
+// ---- Win animation (end) ----
+
+// ---------- High scores (Firebase) ----------
+const firebaseConfig = {
+  apiKey: "AIzaSyDPRO3fS8hrhU2Mbe17U9TEgx1IR3ig3T0",
+  authDomain: "gg-mini-crossword.firebaseapp.com",
+  projectId: "gg-mini-crossword",
+  storageBucket: "gg-mini-crossword.firebasestorage.app",
+  messagingSenderId: "1059859771208",
+  appId: "1:1059859771208:web:43d0f51b589e903a9dcd7d",
+  measurementId: "G-T5PV4F7KT2"
+};
+
+// ---------- Shared UI text (messages.js), with safe built-in fallback ----------
+const DEFAULT_MESSAGES = {
+  winTitle: "You solved it!",
+  winTime: (t) => `Your time: ${t}`,
+  initialsLabel: "Enter your initials",
+  initialsPlaceholder: "AAA",
+  saveButton: "Save",
+  savingText: "Saving…",
+  savedText: "Score saved!",
+  alreadyLoggedText: "Score already logged (first solve only).",
+  invalidInitialsText: "Enter exactly 3 letters.",
+  saveErrorText: "Couldn't save — check your connection and try again.",
+  leaderboardLinkText: "View full leaderboard →",
+  closeButtonText: "Close"
+};
+const MSG = Object.assign({}, DEFAULT_MESSAGES, window.GG_MESSAGES || {});
+
+function applyStaticMessages(){
+  document.getElementById('winTitle').textContent = MSG.winTitle;
+  document.getElementById('initialsLabel').textContent = MSG.initialsLabel;
+  document.getElementById('initialsInput').placeholder = MSG.initialsPlaceholder;
+  document.getElementById('submitScoreBtn').textContent = MSG.saveButton;
+  document.getElementById('leaderboardLink').textContent = MSG.leaderboardLinkText;
+  document.getElementById('closeWin').textContent = MSG.closeButtonText;
+}
+applyStaticMessages();
+
+// ---------- One score per device ----------
+const SCORED_KEY = 'gg-mini-scored::' + PUZZLE_ID;
+function hasScored(){
+  try{ return localStorage.getItem(SCORED_KEY) === '1'; }catch(e){ return false; }
+}
+function markScored(){
+  try{ localStorage.setItem(SCORED_KEY, '1'); }catch(e){ /* storage unavailable */ }
+}
+
+let _fb = null;
+async function getFirebase(){
+  if(_fb) return _fb;
+  const [{ initializeApp }, fs] = await Promise.all([
+    import('https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js'),
+    import('https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js')
+  ]);
+  const app = initializeApp(firebaseConfig);
+  const db = fs.getFirestore(app);
+  _fb = { db, fs };
+  return _fb;
+}
+
+// Persistent random per-browser token — generated once, reused for every
+// puzzle on this site. Not tied to network/IP, so different people on the
+// same wifi each get their own token and don't block each other.
+function getDeviceToken(){
+  const KEY = 'gg-mini-device-token';
+  try{
+    let tok = localStorage.getItem(KEY);
+    if(!tok){
+      tok = (window.crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : (Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2));
+      localStorage.setItem(KEY, tok);
+    }
+    return tok;
+  }catch(e){
+    return null; // storage unavailable — score still saves, just without the device-level lock
+  }
+}
+
+async function submitScore(initials, timeMs){
+  const { db, fs } = await getFirebase();
+  const token = getDeviceToken();
+
+  const batch = fs.writeBatch(db);
+  const scoreRef = fs.doc(fs.collection(db, 'scores'));
+  batch.set(scoreRef, {
+    puzzleId: PUZZLE_ID,
+    initials,
+    timeMs,
+    createdAt: fs.serverTimestamp()
+  });
+
+  if(token){
+    // Deterministic doc ID (puzzle + device token): Firestore's create-only
+    // rule on this collection rejects a second write to the same ID,
+    // enforcing one score per browser per puzzle. Not publicly readable.
+    const lockRef = fs.doc(db, 'deviceLocks', PUZZLE_ID + '::' + token);
+    batch.set(lockRef, {
+      puzzleId: PUZZLE_ID,
+      token,
+      createdAt: fs.serverTimestamp()
+    });
+  }
+
+  await batch.commit();
+}
+
+async function loadTopScores(max){
+  const { db, fs } = await getFirebase();
+  const q = fs.query(fs.collection(db, 'scores'), fs.where('puzzleId', '==', PUZZLE_ID));
+  const snap = await fs.getDocs(q);
+  const rows = [];
+  snap.forEach(doc=>rows.push(doc.data()));
+  rows.sort((a,b)=>(a.timeMs||0)-(b.timeMs||0));
+  return rows.slice(0, max);
+}
+
+function formatMs(ms){
+  const secs = Math.floor(ms/1000);
+  const m = Math.floor(secs/60), s = secs%60;
+  return `${m}:${s.toString().padStart(2,'0')}`;
+}
+
+function resetScoreForm(){
+  const form = document.getElementById('scoreForm');
+  const alreadyMsg = document.getElementById('alreadyLoggedMsg');
+  const input = document.getElementById('initialsInput');
+  const btn = document.getElementById('submitScoreBtn');
+  const msg = document.getElementById('scoreMsg');
+  const mini = document.getElementById('miniBoard');
+
+  msg.textContent = '';
+  msg.classList.remove('error');
+  mini.style.display = 'none';
+  mini.innerHTML = '';
+
+  if(hasScored()){
+    form.style.display = 'none';
+    alreadyMsg.style.display = '';
+    alreadyMsg.textContent = MSG.alreadyLoggedText;
+  }else{
+    form.style.display = '';
+    alreadyMsg.style.display = 'none';
+    input.value = '';
+    input.disabled = false;
+    btn.disabled = false;
+  }
+}
+
+const initialsInput = document.getElementById('initialsInput');
+const submitScoreBtn = document.getElementById('submitScoreBtn');
+const scoreMsg = document.getElementById('scoreMsg');
+
+initialsInput.addEventListener('input', ()=>{
+  initialsInput.value = initialsInput.value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,3);
+});
+initialsInput.addEventListener('keydown', (e)=>{
+  if(e.key==='Enter') submitScoreBtn.click();
+});
+
+submitScoreBtn.addEventListener('click', async ()=>{
+  if(hasScored()){
+    resetScoreForm();
+    return;
+  }
+  const initials = initialsInput.value.trim();
+  if(initials.length!==3){
+    scoreMsg.textContent = MSG.invalidInitialsText;
+    scoreMsg.classList.add('error');
+    return;
+  }
+  initialsInput.disabled = true;
+  submitScoreBtn.disabled = true;
+  scoreMsg.classList.remove('error');
+  scoreMsg.textContent = MSG.savingText;
+  try{
+    await submitScore(initials, state.solvedTimeMs || 0);
+    markScored();
+    scoreMsg.textContent = MSG.savedText;
+    document.getElementById('scoreForm').style.display = 'none';
+    try{
+      const top = await loadTopScores(5);
+      const mini = document.getElementById('miniBoard');
+      let html = '<table><thead><tr><th>#</th><th>Initials</th><th style="text-align:right;">Time</th></tr></thead><tbody>';
+      top.forEach((row,i)=>{
+        html += `<tr><td>${i+1}</td><td>${(row.initials||'').toUpperCase()}</td><td class="time">${formatMs(row.timeMs||0)}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      mini.innerHTML = html;
+      mini.style.display = '';
+    }catch(e){ /* leaderboard preview optional — ignore failure */ }
+  }catch(e){
+    console.error(e);
+    if(e && e.code === 'permission-denied'){
+      // Most likely: a score was already logged from this network for this puzzle.
+      markScored();
+      resetScoreForm();
+    }else{
+      scoreMsg.textContent = MSG.saveErrorText;
+      scoreMsg.classList.add('error');
+      initialsInput.disabled = false;
+      submitScoreBtn.disabled = false;
+    }
+  }
+});
+</script>
+</body>
+</html>
